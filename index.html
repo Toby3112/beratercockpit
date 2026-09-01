@@ -99,7 +99,7 @@
   .kpi-value.pos{color:var(--accent);}
   .kpi-value.neg{color:var(--red);}
 
-  .counter-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;}
+  .counter-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;}
   .counter-btn{
     background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
     padding:18px 14px;text-align:center;cursor:pointer;transition:border-color .12s, transform .08s;
@@ -447,7 +447,7 @@ const QUARTER_MONTHS = {
 /* terminierte/stattgefunden werden aus den Termin-Buttons hergeleitet, Beratungen übernimmt
    denselben Wert wie stattgefundene Termine, Abschlüsse aus dem Umsatz-Status "Eingereicht".
    TüF Termine und Empfehlungen bleiben manuell. */
-const AUTO_METRICS = ["terminierte", "stattgefunden", "beratungen", "abschluesse"];
+const AUTO_METRICS = ["terminierte", "stattgefunden", "beratungen", "abschluesse", "tuef"];
 const KENNZAHLEN_METRICS = [
   {id:"terminierte", label:"terminierte Erstgespräche"},
   {id:"stattgefunden", label:"stattgefundene Erstgespräche"},
@@ -462,6 +462,7 @@ const COUNTERS = [
   {id:"termine_ausgemacht", label:"Ausgemachte Ersttermine", icon:"\u2317"},
   {id:"termine_stattgefunden", label:"Stattgefundene Ersttermine", icon:"\u2713"},
   {id:"beratungen", label:"Beratungen", icon:"\u2261"},
+  {id:"tuef", label:"TüF Termine", icon:"\u2691"},
 ];
 const PROVISIONSSTUFE_OPTIONS = [9, 10, 11, 12, 12.6, 13.2, 14];
 const AUSZAHLUNG_OPTIONS = [0.7, 0.8, 0.9, 1.0];
@@ -925,7 +926,7 @@ document.getElementById('add-privat-cat').addEventListener('click', ()=>{
 });
 
 /* ================= DASHBOARD ================= */
-let counters = { anbahnungen:0, telefonate:0, termine_ausgemacht:0, termine_stattgefunden:0, beratungen:0 };
+let counters = { anbahnungen:0, telefonate:0, termine_ausgemacht:0, termine_stattgefunden:0, beratungen:0, tuef:0 };
 let currentQuarter = 'q1';
 let kennzahlen = {};
 
@@ -965,7 +966,7 @@ function quarterForMonth(month){
 }
 
 async function loadCounters(){
-  counters = await storeGet('counters:' + selectedMonth, {anbahnungen:0, telefonate:0, termine_ausgemacht:0, termine_stattgefunden:0, beratungen:0});
+  counters = await storeGet('counters:' + selectedMonth, {anbahnungen:0, telefonate:0, termine_ausgemacht:0, termine_stattgefunden:0, beratungen:0, tuef:0});
 }
 let counterSavePending = Promise.resolve();
 async function saveCounters(){
@@ -1075,18 +1076,19 @@ function renderQuarterTabs(){
 /* Summiert die Termin-Zähler und Umsatz-Abschlüsse über alle Monate eines Quartals */
 async function computeAutoIstValues(quarterId){
   const months = QUARTER_MONTHS[quarterId];
-  let ausgemacht = 0, stattgefunden = 0, beratungen = 0, abschluesse = 0;
+  let ausgemacht = 0, stattgefunden = 0, beratungen = 0, abschluesse = 0, tuef = 0;
   for(const m of months){
-    const c = await storeGet('counters:' + m, {termine_ausgemacht:0, termine_stattgefunden:0, beratungen:0});
+    const c = await storeGet('counters:' + m, {termine_ausgemacht:0, termine_stattgefunden:0, beratungen:0, tuef:0});
     ausgemacht += c.termine_ausgemacht || 0;
     stattgefunden += c.termine_stattgefunden || 0;
     beratungen += c.beratungen || 0;
+    tuef += c.tuef || 0;
     const u = await storeGet('umsatz:' + m, null);
     if(u && u.customers){
       abschluesse += u.customers.filter(cust => cust.eingereicht === 'Eingereicht').length;
     }
   }
-  return { terminierte: ausgemacht, stattgefunden: stattgefunden, beratungen: beratungen, abschluesse: abschluesse };
+  return { terminierte: ausgemacht, stattgefunden: stattgefunden, beratungen: beratungen, abschluesse: abschluesse, tuef: tuef };
 }
 
 async function renderKennzahlen(){
