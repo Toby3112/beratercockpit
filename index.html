@@ -452,8 +452,8 @@ const KENNZAHLEN_METRICS = [
   {id:"terminierte", label:"terminierte Erstgespräche"},
   {id:"stattgefunden", label:"stattgefundene Erstgespräche"},
   {id:"beratungen", label:"Beratungen"},
-  {id:"abschluesse", label:"Abschlüsse"},
   {id:"tuef", label:"TüF Termine"},
+  {id:"abschluesse", label:"Abschlüsse"},
   {id:"empfehlungen", label:"Empfehlungen"},
 ];
 const COUNTERS = [
@@ -1127,14 +1127,13 @@ function renderAuswertung(){
   const ist = id => data[id].ist;
   const noShow = ist('terminierte')>0 ? (ist('terminierte')-ist('stattgefunden'))/ist('terminierte') : 0;
   const conv = ist('stattgefunden')>0 ? ist('beratungen')/ist('stattgefunden') : 0;
-  const abschlussquote = ist('beratungen')>0 ? ist('abschluesse')/ist('beratungen') : 0;
+  const abschlussquoteBasis = ist('beratungen') + ist('tuef');
+  const abschlussquote = abschlussquoteBasis>0 ? ist('abschluesse')/abschlussquoteBasis : 0;
   const body = document.getElementById('auswertung-body');
   body.innerHTML = `
     <tr><td>No Show Rate</td><td colspan="2" class="num-cell">${pct(noShow)}</td></tr>
     <tr><td>Conversion Erstgespräch</td><td colspan="2" class="num-cell">${pct(conv)}</td></tr>
     <tr><td>Abschlussquote</td><td colspan="2" class="num-cell">${pct(abschlussquote)}</td></tr>
-    <tr><td>TüF Termine</td><td colspan="2" class="num-cell">${ist('tuef')}</td></tr>
-    <tr><td>Empfehlungen</td><td colspan="2" class="num-cell">${ist('empfehlungen')}</td></tr>
   `;
 }
 
