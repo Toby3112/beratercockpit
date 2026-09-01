@@ -108,6 +108,11 @@
   .counter-reset{margin-top:26px;}
 
   table{width:100%;border-collapse:collapse;font-size:13.5px;}
+  .col-eingereicht{width:150px;}
+  .col-ke{width:130px;}
+  .col-betrag{width:130px;}
+  .col-fix{width:70px;}
+  .col-del{width:36px;}
   th{text-align:left;font-weight:600;color:var(--ink-soft);font-size:12.5px;padding:8px 8px;border-bottom:1px solid var(--line);white-space:nowrap;}
   td{padding:6px 8px;border-bottom:1px solid #eef1f3;vertical-align:middle;}
   tr:last-child td{border-bottom:none;}
@@ -183,8 +188,16 @@
     .kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
     .counter-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
     .grid-2{grid-template-columns:1fr;gap:16px;}
-    .card{padding:14px 16px;overflow-x:auto;}
-    table{min-width:460px;}
+    .card{padding:12px 12px;}
+    table{font-size:12px;}
+    th, td{padding:5px 4px;}
+    .col-eingereicht{width:84px;}
+    .col-ke{width:60px;}
+    .col-betrag{width:78px;}
+    .col-fix{width:40px;}
+    .col-del{width:22px;}
+    td input, td select{padding:4px 3px;font-size:12px;}
+    td button.ghost{padding:2px;}
     .field-input{width:110px !important;}
     #print-pdf-btn{bottom:16px;right:16px;width:42px;height:42px;font-size:17px;}
     .auth-card{padding:22px 18px;}
@@ -333,7 +346,7 @@
       </div>
       <table>
         <thead>
-          <tr><th>Kunde</th><th style="width:150px;">Eingereicht</th><th style="width:130px;text-align:right;">KE</th><th style="width:36px;"></th></tr>
+          <tr><th>Kunde</th><th class="col-eingereicht">Eingereicht</th><th class="col-ke" style="text-align:right;">KE</th><th class="col-del"></th></tr>
         </thead>
         <tbody id="customer-body"></tbody>
         <tfoot>
@@ -381,7 +394,7 @@
         <button id="add-betrieb-cat">+ Kategorie</button>
       </div>
       <table>
-        <thead><tr><th>Kategorie</th><th style="width:130px;text-align:right;">Betrag (€)</th><th style="width:70px;text-align:center;">Fix</th><th style="width:36px;"></th></tr></thead>
+        <thead><tr><th>Kategorie</th><th class="col-betrag" style="text-align:right;">Betrag (€)</th><th class="col-fix" style="text-align:center;">Fix</th><th class="col-del"></th></tr></thead>
         <tbody id="betrieb-body"></tbody>
         <tfoot><tr class="sum-row"><td>Summe Betrieb</td><td class="num-cell" id="betrieb-sum">0,00 €</td><td colspan="2"></td></tr></tfoot>
       </table>
@@ -393,7 +406,7 @@
         <button id="add-privat-cat">+ Kategorie</button>
       </div>
       <table>
-        <thead><tr><th>Kategorie</th><th style="width:130px;text-align:right;">Betrag (€)</th><th style="width:70px;text-align:center;">Fix</th><th style="width:36px;"></th></tr></thead>
+        <thead><tr><th>Kategorie</th><th class="col-betrag" style="text-align:right;">Betrag (€)</th><th class="col-fix" style="text-align:center;">Fix</th><th class="col-del"></th></tr></thead>
         <tbody id="privat-body"></tbody>
         <tfoot><tr class="sum-row"><td>Summe Privat</td><td class="num-cell" id="privat-sum">0,00 €</td><td colspan="2"></td></tr></tfoot>
       </table>
@@ -628,9 +641,11 @@ async function loadUmsatzMonth(){
 }
 let umsatzSavePending = Promise.resolve();
 async function saveUmsatzMonth(){
-  const p = storeSet('umsatz:' + selectedMonth, umsatzData);
-  umsatzSavePending = p;
-  await p;
+  const month = selectedMonth;
+  umsatzSavePending = umsatzSavePending
+    .catch(()=>{})
+    .then(()=> storeSet('umsatz:' + month, umsatzData));
+  await umsatzSavePending;
 }
 
 function renderCustomers(){
@@ -783,9 +798,10 @@ async function loadKategorien(){
 }
 let kategorienSavePending = Promise.resolve();
 async function saveKategorien(){
-  const p = storeSet('kategorien', kategorien);
-  kategorienSavePending = p;
-  await p;
+  kategorienSavePending = kategorienSavePending
+    .catch(()=>{})
+    .then(()=> storeSet('kategorien', kategorien));
+  await kategorienSavePending;
 }
 
 /* Fixkosten-Logik: gibt es für den Monat noch keinen expliziten Wert, wird bei
@@ -818,9 +834,11 @@ async function loadKostenMonth(){
 }
 let kostenSavePending = Promise.resolve();
 async function saveKostenMonth(){
-  const p = storeSet('kosten:' + selectedMonth, kostenData);
-  kostenSavePending = p;
-  await p;
+  const month = selectedMonth;
+  kostenSavePending = kostenSavePending
+    .catch(()=>{})
+    .then(()=> storeSet('kosten:' + month, kostenData));
+  await kostenSavePending;
 }
 
 function renderKostenGroup(group, bodyId){
@@ -918,7 +936,7 @@ dashboardMonthSelect.addEventListener('change', async ()=>{
 async function setSelectedMonth(month){
   // Offene Speichervorgänge des bisherigen Monats zuerst abschließen,
   // damit beim Wechsel keine frischen Eingaben verloren gehen.
-  await Promise.all([umsatzSavePending, kostenSavePending, counterSavePending, kategorienSavePending]);
+  await Promise.all([umsatzSavePending, kostenSavePending, counterSavePending, kategorienSavePending, kennzahlenSavePending]);
 
   selectedMonth = month;
   umsatzMonthSelect.value = month;
@@ -945,9 +963,11 @@ async function loadCounters(){
 }
 let counterSavePending = Promise.resolve();
 async function saveCounters(){
-  const p = storeSet('counters:' + selectedMonth, counters);
-  counterSavePending = p;
-  await p;
+  const month = selectedMonth;
+  counterSavePending = counterSavePending
+    .catch(()=>{})
+    .then(()=> storeSet('counters:' + month, counters));
+  await counterSavePending;
 }
 
 async function loadKennzahlenAll(){
@@ -961,7 +981,13 @@ function emptyKennzahlen(){
   KENNZAHLEN_METRICS.forEach(m=> o[m.id] = {soll:0, ist:0});
   return o;
 }
-async function saveKennzahlen(q){ await storeSet('kennzahlen:' + q, kennzahlen[q]); }
+let kennzahlenSavePending = Promise.resolve();
+async function saveKennzahlen(q){
+  kennzahlenSavePending = kennzahlenSavePending
+    .catch(()=>{})
+    .then(()=> storeSet('kennzahlen:' + q, kennzahlen[q]));
+  await kennzahlenSavePending;
+}
 
 function renderCounters(){
   const grid = document.getElementById('counter-grid');
