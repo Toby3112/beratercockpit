@@ -75,6 +75,9 @@
   }
   select:focus, input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft);}
   input::placeholder{color:#6b7684;opacity:1;}
+  input[type=number]{-moz-appearance:textfield;}
+  input[type=number]::-webkit-outer-spin-button,
+  input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
   button{
     font-family:inherit;font-size:13px;padding:8px 14px;border-radius:6px;border:1px solid var(--line);
     background:#fff;color:var(--ink);cursor:pointer;
@@ -107,7 +110,10 @@
   }
   .counter-btn:hover{border-color:var(--accent);}
   .counter-btn:active{transform:scale(.98);}
-  .counter-icon{font-size:20px;color:var(--accent);}
+  .counter-btn{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;}
+  .counter-btn.holding{border-color:var(--red);background:#fdf1f1;}
+  .counter-btn.holding .counter-hint{color:var(--red);}
+  .counter-icon{font-size:20px;color:#C8AA22;}
   .counter-label{font-size:13px;color:var(--ink-soft);}
   .counter-value{font-size:28px;font-weight:600;}
   .counter-hint{font-size:11px;color:#9aa7b2;}
@@ -447,7 +453,7 @@ const QUARTER_MONTHS = {
 /* terminierte/stattgefunden werden aus den Termin-Buttons hergeleitet, Beratungen übernimmt
    denselben Wert wie stattgefundene Termine, Abschlüsse aus dem Umsatz-Status "Eingereicht".
    TüF Termine und Empfehlungen bleiben manuell. */
-const AUTO_METRICS = ["terminierte", "stattgefunden", "beratungen", "abschluesse", "tuef"];
+const AUTO_METRICS = ["terminierte", "stattgefunden", "beratungen", "abschluesse", "tuef", "empfehlungen"];
 const KENNZAHLEN_METRICS = [
   {id:"terminierte", label:"terminierte Erstgespräche"},
   {id:"stattgefunden", label:"stattgefundene Erstgespräche"},
@@ -457,12 +463,12 @@ const KENNZAHLEN_METRICS = [
   {id:"empfehlungen", label:"Empfehlungen"},
 ];
 const COUNTERS = [
-  {id:"anbahnungen", label:"Anwahlen", icon:"+"},
   {id:"telefonate", label:"Geführte Telefonate", icon:"\u260E"},
-  {id:"termine_ausgemacht", label:"Ausgemachte Ersttermine", icon:"\u2317"},
+  {id:"termine_ausgemacht", label:"Ausgemachte Ersttermine", icon:"\u{1F4C5}"},
   {id:"termine_stattgefunden", label:"Stattgefundene Ersttermine", icon:"\u2713"},
-  {id:"beratungen", label:"Beratungen", icon:"\u2261"},
-  {id:"tuef", label:"TüF Termine", icon:"\u2691"},
+  {id:"beratungen", label:"Beratungen", icon:"\u{1F464}"},
+  {id:"tuef", label:"TüF Termine", icon:"\u{1F697}"},
+  {id:"empfehlungen", label:"Empfehlungen", icon:"\u2605"},
 ];
 const PROVISIONSSTUFE_OPTIONS = [9, 10, 11, 12, 12.6, 13.2, 14];
 const AUSZAHLUNG_OPTIONS = [0.7, 0.8, 0.9, 1.0];
@@ -926,7 +932,7 @@ document.getElementById('add-privat-cat').addEventListener('click', ()=>{
 });
 
 /* ================= DASHBOARD ================= */
-let counters = { anbahnungen:0, telefonate:0, termine_ausgemacht:0, termine_stattgefunden:0, beratungen:0, tuef:0 };
+let counters = { anbahnungen:0, telefonate:0, termine_ausgemacht:0, termine_stattgefunden:0, beratungen:0, tuef:0, empfehlungen:0 };
 let currentQuarter = 'q1';
 let kennzahlen = {};
 
@@ -966,7 +972,7 @@ function quarterForMonth(month){
 }
 
 async function loadCounters(){
-  counters = await storeGet('counters:' + selectedMonth, {anbahnungen:0, telefonate:0, termine_ausgemacht:0, termine_stattgefunden:0, beratungen:0, tuef:0});
+  counters = await storeGet('counters:' + selectedMonth, {anbahnungen:0, telefonate:0, termine_ausgemacht:0, termine_stattgefunden:0, beratungen:0, tuef:0, empfehlungen:0});
 }
 let counterSavePending = Promise.resolve();
 async function saveCounters(){
@@ -1009,13 +1015,48 @@ function renderCounters(){
       <div class="counter-value">${counters[c.id]||0}</div>
       <div class="counter-hint">Klicken zum Erfassen</div>
     `;
-    div.addEventListener('click', async ()=>{
-      counters[c.id] = (counters[c.id]||0) + 1;
-      await saveCounters();
-      div.querySelector('.counter-value').textContent = counters[c.id];
-      renderDashKpis();
-      renderKennzahlen();
+    const hint = div.querySelector('.counter-hint');
+    const valueEl = div.querySelector('.counter-value');
+    const HOLD_MS = 650;
+    let holdTimer = null;
+    let longPressed = false;
+
+    function clearHold(){
+      if(holdTimer){ clearTimeout(holdTimer); holdTimer = null; }
+      div.classList.remove('holding');
+      hint.textContent = 'Klicken zum Erfassen';
+    }
+
+    div.addEventListener('pointerdown', (e)=>{
+      if(e.button !== undefined && e.button !== 0) return;
+      longPressed = false;
+      div.classList.add('holding');
+      hint.textContent = 'Loslassen zum Zurücksetzen';
+      holdTimer = setTimeout(async ()=>{
+        longPressed = true;
+        counters[c.id] = 0;
+        await saveCounters();
+        valueEl.textContent = 0;
+        clearHold();
+        renderDashKpis();
+        renderKennzahlen();
+      }, HOLD_MS);
     });
+    div.addEventListener('pointerup', async ()=>{
+      const wasLongPressed = longPressed;
+      clearHold();
+      if(!wasLongPressed){
+        counters[c.id] = (counters[c.id]||0) + 1;
+        await saveCounters();
+        valueEl.textContent = counters[c.id];
+        renderDashKpis();
+        renderKennzahlen();
+      }
+    });
+    div.addEventListener('pointerleave', clearHold);
+    div.addEventListener('pointercancel', clearHold);
+    div.addEventListener('contextmenu', e=> e.preventDefault());
+
     grid.appendChild(div);
   });
 }
@@ -1076,19 +1117,20 @@ function renderQuarterTabs(){
 /* Summiert die Termin-Zähler und Umsatz-Abschlüsse über alle Monate eines Quartals */
 async function computeAutoIstValues(quarterId){
   const months = QUARTER_MONTHS[quarterId];
-  let ausgemacht = 0, stattgefunden = 0, beratungen = 0, abschluesse = 0, tuef = 0;
+  let ausgemacht = 0, stattgefunden = 0, beratungen = 0, abschluesse = 0, tuef = 0, empfehlungen = 0;
   for(const m of months){
-    const c = await storeGet('counters:' + m, {termine_ausgemacht:0, termine_stattgefunden:0, beratungen:0, tuef:0});
+    const c = await storeGet('counters:' + m, {termine_ausgemacht:0, termine_stattgefunden:0, beratungen:0, tuef:0, empfehlungen:0});
     ausgemacht += c.termine_ausgemacht || 0;
     stattgefunden += c.termine_stattgefunden || 0;
     beratungen += c.beratungen || 0;
     tuef += c.tuef || 0;
+    empfehlungen += c.empfehlungen || 0;
     const u = await storeGet('umsatz:' + m, null);
     if(u && u.customers){
       abschluesse += u.customers.filter(cust => cust.eingereicht === 'Eingereicht').length;
     }
   }
-  return { terminierte: ausgemacht, stattgefunden: stattgefunden, beratungen: beratungen, abschluesse: abschluesse, tuef: tuef };
+  return { terminierte: ausgemacht, stattgefunden: stattgefunden, beratungen: beratungen, abschluesse: abschluesse, tuef: tuef, empfehlungen: empfehlungen };
 }
 
 async function renderKennzahlen(){
