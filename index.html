@@ -118,7 +118,8 @@
   .counter-value{font-size:28px;font-weight:600;}
   .counter-hint{font-size:11px;color:#9aa7b2;}
   .counter-reset{margin-top:26px;}
-  .abgerechnet-hint{font-size:11px;color:var(--ink-soft);margin:3px 0 0 8px;font-style:italic;}
+  .row-abgerechnet input, .row-abgerechnet select{opacity:.6;}
+  .abgerechnet-hint{font-size:11px;color:var(--ink-soft);margin:3px 0 0 8px;font-style:italic;line-height:1.3;white-space:normal;}
 
   table{width:100%;border-collapse:collapse;font-size:13.5px;}
   .col-eingereicht{width:150px;}
@@ -211,6 +212,7 @@
     .col-del{width:22px;}
     td input, td select{padding:4px 3px;font-size:12px;}
     td button.ghost{padding:2px;}
+    .abgerechnet-hint{display:block;font-size:10.5px;margin:2px 0 0 3px;}
     .field-input{width:110px !important;}
     #print-pdf-btn{width:42px;height:42px;font-size:17px;}
     .auth-card{padding:22px 18px;}
@@ -671,7 +673,7 @@ function renderCustomers(){
   ];
   sortedCustomers.forEach(c=>{
     const tr = document.createElement('tr');
-    if(c.eingereicht === 'Abgerechnet') tr.style.opacity = '.6';
+    if(c.eingereicht === 'Abgerechnet') tr.className = 'row-abgerechnet';
     tr.innerHTML = `
       <td><input type="text" value="${escapeHtml(c.kunde)}" data-id="${c.id}" class="c-name" placeholder="Name"/>${c.eingereicht === 'Abgerechnet' ? '<div class="abgerechnet-hint">Bei Abgerechnet im System eingetragen?</div>' : ''}</td>
       <td><select data-id="${c.id}" class="c-status">
