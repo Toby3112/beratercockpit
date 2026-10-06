@@ -362,7 +362,7 @@
         </thead>
         <tbody id="customer-body"></tbody>
         <tfoot>
-          <tr class="sum-row"><td>Gesamt</td><td></td><td class="num-cell" id="umsatz-gesamt">0,00 €</td><td></td></tr>
+          <tr class="sum-row"><td>Noch offen</td><td></td><td class="num-cell" id="umsatz-gesamt">0,00 €</td><td></td></tr>
         </tfoot>
       </table>
     </div>
@@ -474,7 +474,7 @@ const PROVISIONSSTUFE_OPTIONS = [9, 10, 11, 12, 12.6, 13.2, 14];
 const AUSZAHLUNG_OPTIONS = [0.7, 0.8, 0.9, 1.0];
 const ERFOLGSPROVISION_OPTIONS = [2, 3.25];
 const KLB_OPTIONS = [0,200,250,300,400,600,850,1000,1250,1500,1750,2000,2500,3000,3500,4000,4500,5000,5500,6500,7000,7500,8000,8500];
-const EINGEREICHT_OPTIONS = ["Offen", "Eingereicht", "Storniert"];
+const EINGEREICHT_OPTIONS = ["Offen", "Eingereicht", "Abgerechnet", "Storniert"];
 
 const DEFAULT_BETRIEB_CATS = ["Miete","Strom + Internet","Leasing Fahrzeug","Versicherung (KFZ)","Rechtsschutz","Software / Lizenzen","Telekom (Handy)","Löhne","Steuerberater","Steuervorauszahlung","Sonstiges"];
 const DEFAULT_PRIVAT_CATS = ["Miete","Nebenkosten","Einkaufen & Freizeit","Fitnessstudio","Strom","Rundfunkbeitrag","Versicherungen","Kinder","Sonstiges"];
@@ -664,8 +664,13 @@ async function saveUmsatzMonth(){
 function renderCustomers(){
   const body = document.getElementById('customer-body');
   body.innerHTML = '';
-  umsatzData.customers.forEach(c=>{
+  const sortedCustomers = [
+    ...umsatzData.customers.filter(c=> c.eingereicht !== 'Abgerechnet'),
+    ...umsatzData.customers.filter(c=> c.eingereicht === 'Abgerechnet')
+  ];
+  sortedCustomers.forEach(c=>{
     const tr = document.createElement('tr');
+    if(c.eingereicht === 'Abgerechnet') tr.style.opacity = '.6';
     tr.innerHTML = `
       <td><input type="text" value="${escapeHtml(c.kunde)}" data-id="${c.id}" class="c-name" placeholder="Name"/></td>
       <td><select data-id="${c.id}" class="c-status">
@@ -684,7 +689,7 @@ function renderCustomers(){
   body.querySelectorAll('.c-status').forEach(el=>el.addEventListener('change', e=>{
     const c = umsatzData.customers.find(x=>x.id===e.target.dataset.id);
     c.eingereicht = e.target.value; saveUmsatzMonth();
-    renderCustomers_totalsOnly(); renderCommission();
+    renderCustomers(); renderCommission();
   }));
   body.querySelectorAll('.c-potenzial').forEach(el=>el.addEventListener('input', e=>{
     const c = umsatzData.customers.find(x=>x.id===e.target.dataset.id);
@@ -698,15 +703,23 @@ function renderCustomers(){
   renderCustomers_totalsOnly();
 }
 function renderCustomers_totalsOnly(){
-  document.getElementById('umsatz-gesamt').textContent = euro(umsatzGesamt());
+  document.getElementById('umsatz-gesamt').textContent = euro(sumKundenOffen(umsatzData.customers));
+}
+/* Basis für die Auszahlung: Eingereicht + Abgerechnet, Storniert wird abgezogen, Offen zählt nicht */
+function sumKundenBasis(customers){
+  return (customers||[]).reduce((s,c)=>{
+    const wert = parseFloat(c.potenzial)||0;
+    if(c.eingereicht === 'Eingereicht' || c.eingereicht === 'Abgerechnet') return s + wert;
+    if(c.eingereicht === 'Storniert') return s - wert;
+    return s;
+  }, 0);
+}
+/* Summenzeile der Kunden-Tabelle: nur Kunden mit Status "Offen" */
+function sumKundenOffen(customers){
+  return (customers||[]).reduce((s,c)=> c.eingereicht === 'Offen' ? s + (parseFloat(c.potenzial)||0) : s, 0);
 }
 function umsatzGesamt(){
-  return umsatzData.customers.reduce((s,c)=>{
-    const wert = parseFloat(c.potenzial)||0;
-    if(c.eingereicht === 'Eingereicht') return s + wert;
-    if(c.eingereicht === 'Storniert') return s - wert;
-    return s; // "Offen" wird nicht berücksichtigt
-  }, 0);
+  return sumKundenBasis(umsatzData.customers);
 }
 
 document.getElementById('add-customer').addEventListener('click', ()=>{
@@ -833,7 +846,7 @@ async function computeAuszahlungForMonth(month){
   }
   const u = await storeGet('umsatz:' + month, null);
   if(!u) return 0;
-  const gesamt = (u.customers||[]).reduce((s,c)=>s+(parseFloat(c.potenzial)||0),0);
+  const gesamt = sumKundenBasis(u.customers);
   const c = Object.assign({}, u.commission || emptyCommission(), getGlobalCommissionParams());
   return calcAuszahlung(gesamt, c).auszahlung;
 }
@@ -1127,7 +1140,7 @@ async function computeAutoIstValues(quarterId){
     empfehlungen += c.empfehlungen || 0;
     const u = await storeGet('umsatz:' + m, null);
     if(u && u.customers){
-      abschluesse += u.customers.filter(cust => cust.eingereicht === 'Eingereicht').length;
+      abschluesse += u.customers.filter(cust => cust.eingereicht === 'Eingereicht' || cust.eingereicht === 'Abgerechnet').length;
     }
   }
   return { terminierte: ausgemacht, stattgefunden: stattgefunden, beratungen: beratungen, abschluesse: abschluesse, tuef: tuef, empfehlungen: empfehlungen };
