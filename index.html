@@ -612,7 +612,8 @@ function emptyCommission(){
     kundenleistungsbonus: KLB_OPTIONS[0],
     leistungszuschuss: 0,
     monat13: 0,
-    abgerechnet: 0
+    abgerechnetNettoNeu: 0,
+    abgerechnetRatierlich: 0
   };
 }
 
@@ -748,7 +749,8 @@ function renderCommission(){
       <select class="field-input" id="f-klb">${KLB_OPTIONS.map(o=>`<option value="${o}" ${o===c.kundenleistungsbonus?'selected':''}>${o}</option>`).join('')}</select></div>
     <div class="field-row"><label>Leistungszuschuss Praxis</label><input type="number" step="0.01" placeholder="0" class="field-input" id="f-lzp" value="${numAttr(c.leistungszuschuss)}"/></div>
     <div class="field-row"><label>13. Monatsprovision</label><input type="number" step="0.01" placeholder="0" class="field-input" id="f-m13" value="${numAttr(c.monat13)}"/></div>
-    <div class="field-row"><label>Abgerechnet im System</label><input type="number" step="0.01" placeholder="0" class="field-input" id="f-abg" value="${numAttr(c.abgerechnet)}"/></div>
+    <div class="field-row"><label>Abgerechnet im System: Netto neu</label><input type="number" step="0.01" placeholder="0" class="field-input" id="f-abg-netto" value="${numAttr(abgerechnetNettoNeuWert(c))}"/></div>
+    <div class="field-row"><label>Abgerechnet im System: Neu ratierlich</label><input type="number" step="0.01" placeholder="0" class="field-input" id="f-abg-rat" value="${numAttr(c.abgerechnetRatierlich)}"/></div>
   `;
   const bind = (id, key, isFloat)=>{
     const el = document.getElementById(id);
@@ -768,13 +770,21 @@ function renderCommission(){
   bind('f-klb','kundenleistungsbonus',true);
   bind('f-lzp','leistungszuschuss',true);
   bind('f-m13','monat13',true);
-  bind('f-abg','abgerechnet',true);
+  bind('f-abg-netto','abgerechnetNettoNeu',true);
+  bind('f-abg-rat','abgerechnetRatierlich',true);
 
   renderCommissionResults();
 }
 
+function abgerechnetNettoNeuWert(c){
+  return (c.abgerechnetNettoNeu !== undefined ? c.abgerechnetNettoNeu : c.abgerechnet) || 0;
+}
+function abgerechnetSumme(c){
+  return abgerechnetNettoNeuWert(c) + (c.abgerechnetRatierlich||0);
+}
+
 function calcAuszahlung(gesamtKunden, c){
-  const gesamt = gesamtKunden + (c.abgerechnet||0);
+  const gesamt = gesamtKunden + abgerechnetSumme(c);
   const provision = gesamt * (c.provisionsstufe||0) * (c.auszahlung||0);
   const erfolgsprovisionBasis = gesamt + (c.ke1||0) + (c.ke2||0);
   const erfolgsprovision = erfolgsprovisionBasis >= 900 ? erfolgsprovisionBasis / 3 * (c.erfolgsprovisionSatz||0) : 0;
@@ -787,7 +797,7 @@ function renderCommissionResults(){
   const { gesamt, provision, erfolgsprovision, auszahlung } = calcAuszahlung(umsatzGesamt(), c);
 
   document.getElementById('commission-results').innerHTML = `
-    <div class="result-row"><span>Netto Neu</span><span class="result-value">${gesamt.toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})}</span></div>
+    <div class="result-row"><span>KE netto neu</span><span class="result-value">${gesamt.toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})}</span></div>
     <div class="result-row"><span>Provision</span><span class="result-value">${euro(provision)}</span></div>
     <div class="result-row"><span>Erfolgsprovision</span><span class="result-value">${euro(erfolgsprovision)}</span></div>
     <div class="result-row"><span>Kundenleistungsbonus</span><span class="result-value">${euro(c.kundenleistungsbonus)}</span></div>
